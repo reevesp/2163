@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: thinkqm-tls-configmap
+  namespace: cp4i
+data:
+  think.mqsc: |
+    DEFINE QLOCAL('THINK.QUEUE') REPLACE 
+    DEFINE CHANNEL(THINKQMCHL) CHLTYPE(SVRCONN) TRPTYPE(TCP) SSLCAUTH(OPTIONAL) SSLCIPH('ANY_TLS12_OR_HIGHER')
+    SET CHLAUTH(THINKQMCHL) TYPE(BLOCKUSER) USERLIST('nobody')
+    REFRESH SECURITY(*)
+---
+apiVersion: mq.ibm.com/v1beta1
+kind: QueueManager
+metadata:
+  name: thinkqm
+  namespace: cp4i
+spec:
+  version: 9.2.2.0-r1
+  license:
+    accept: true
+    license: L-RJON-BYRMYW
+    use: "NonProduction"
+  queueManager:
+    name: THINKQM
+    mqsc:
+    - configMap:
+        name: thinkqm-tls-configmap
+        items:
+        - think.mqsc
+    storage:
+      queueManager:
+        type: persistent-claim
+    availability:
+      type: NativeHA
+  template:
+    pod:
+      containers:
+        - env:
+            - name: MQSNOAUT
+              value: 'yes'
+          name: qmgr
+  web:
+    enabled: true
+  pki:
+    keys:
+      - name: default
+        secret:
+          secretName: thinkqm-tls-secret
+          items: 
+          - tls.key
+          - tls.crt
